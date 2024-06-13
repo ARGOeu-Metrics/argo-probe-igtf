@@ -1,4 +1,4 @@
-#! /usr/bin/perl -w
+#! /usr/bin/perl
 #
 use strict;
 use Monitoring::Plugin;
@@ -6,6 +6,7 @@ use POSIX;
 use XML::Simple;
 use LWP::UserAgent;
 use HTTP::Date;
+use X500::DN;
 
 # Standard variables used in Monitoring::Plugin constructor
 use constant PROGNAME => 'check_igtf_ca';
@@ -357,27 +358,37 @@ if ($plugin->opts->occi) {
 }
 
 my $inlist=0;
-print "Running command: /bin/echo 0 | /usr/bin/openssl s_client -ign_eof -prexit -cert $cert -key $key -connect $ssladd 2>/dev/null" if ($plugin->opts->verbose);
-if (!open CONN,"/bin/echo 0 | /usr/bin/openssl s_client -ign_eof -prexit -cert $cert -key $key -connect $ssladd 2>/dev/null |") {
+print "Running command: /bin/echo 0 | /usr/bin/openssl s_client -ign_eof -prexit -cert $cert -key $key -connect $ssladd 2>/dev/null \n" if ($plugin->opts->verbose);
+if (!open OPENSSL_CONN, "/bin/echo 0 | /usr/bin/openssl s_client -ign_eof -prexit -cert $cert -key $key -connect $ssladd 2>/dev/null |") {
     $plugin->nagios_die("Unable to establish TLS connection with $host:$port.");
 }
-while (<CONN>) {
+while (<OPENSSL_CONN>) {
     if (/^no peer certificate available/) {
         $plugin->nagios_exit(OK, "Endpoint $host:$port is not TLS-enabled");
     }
     /^Acceptable client certificate CA names/ and $inlist++ and next;
     /^---/ and $inlist=0 and next;
-    $inlist and /^\// and do {
-        chomp;
-        delete $currentValidDNs->{$_} if ( exists $currentValidDNs->{$_} );
-        $currentObsoleteDNsFound->{$_} = 1 if  ( exists $currentObsoleteDNs->{$_} );
-        if (defined $previousObsoleteDNs && defined $previousValidDNs) {
-            $previousObsoleteDNsFound->{$_} = 1 if ( exists $previousObsoleteDNs->{$_} );
-            delete $previousValidDNs->{$_} if  ( exists $previousValidDNs->{$_} );
-        }
-    };
+    $inlist and /CN.*=/ and do {
+	chomp;
+	my $line = $_;
+        my $dn;
+        if ( $line =~ /^\// ) {
+            $dn = $line;
+        } else {
+            my $dnObject = X500::DN->ParseRFC2253($line);
+	    for my $i (reverse $dnObject->getRDNs) {
+                $dn .= '/' . $i->getOpenSSLString();
+            }
+	}
+	delete $currentValidDNs->{$dn} if ( exists $currentValidDNs->{$dn} );
+        $currentObsoleteDNsFound->{$dn} = 1 if  ( exists $currentObsoleteDNs->{$dn} );
+	if (defined $previousObsoleteDNs && defined $previousValidDNs) {
+	    $previousObsoleteDNsFound->{$dn} = 1 if ( exists $previousObsoleteDNs->{$dn} );
+            delete $previousValidDNs->{$dn} if  ( exists $previousValidDNs->{$dn} );
+	}
+    }
 }
-close CONN;
+close OPENSSL_CONN;
 my @CAs;
 my $shouldCompare = 0;
 my $incorrectList = '';

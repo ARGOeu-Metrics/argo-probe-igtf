@@ -34,6 +34,8 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0770,nagios,nagios) /var/spool/argo/probes/%{name}
 
 %changelog
+* Thu Jun 13 2024 Emir Imamagic <eimamagi@srce.hr> - 2.2.0-1%{?dist}
+- ARGO-4666 Fix issue with argo.igtf.validity-fts3 metric
 * Thu Apr 4 2024 Katarina Zailac <kzailac@srce.hr> - 2.1.0-1%{?dist}
 - ARGO-4528 - Add perl-Crypt-OpenSSL-X509 dependency to argo-probe-igtf
 - AO-925 Create Rocky 9 rpm for argo-probe-igtf
