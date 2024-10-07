@@ -2,7 +2,7 @@
 
 Summary: ARGO probes for IGTF CA distribution validation
 Name: argo-probe-igtf
-Version: 2.1.0
+Version: 2.2.0
 Release: 1%{?dist}
 License: ASL 2.0
 Group: Network/Monitoring
